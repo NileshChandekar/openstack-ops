@@ -1,0 +1,61 @@
+---
+- name: Update GRUB configuration
+  hosts: all
+  become: yes
+  vars:
+    DIB_BOOTLOADER_DEFAULT_CMDLINE: "rdblacklist=bfa,lpfc nofb nomodeset vga=normal console=tty0 console=ttyS1,115200n8 audit=1 audit_backlog_limit=8192"
+    isRH: 0
+    isUbuntu: 0
+
+  tasks:
+    - name: Check if the system is RedHat-based
+      command: "egrep -i 'Centos|RedHat' /etc/redhat-release"
+      register: check_rh
+      changed_when: false
+      failed_when: false
+
+    - name: Check if the system is Ubuntu-based
+      command: "lsb_release -si | grep -i Ubuntu"
+      register: check_ubuntu
+      changed_when: false
+      failed_when: false
+
+    - name: Set isRH variable based on the system type
+      set_fact:
+        isRH: 1
+      when: check_rh.rc == 0
+
+    - name: Set isUbuntu variable based on the system type
+      set_fact:
+        isUbuntu: 1
+      when: check_ubuntu.rc == 0
+
+    - name: Display DIB_BOOTLOADER_DEFAULT_CMDLINE
+      debug:
+        msg: "DIB_BOOTLOADER_DEFAULT_CMDLINE: {{ DIB_BOOTLOADER_DEFAULT_CMDLINE }}"
+
+    - name: Update GRUB configuration for RedHat-based systems
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX='
+        line: "GRUB_CMDLINE_LINUX=\"{{ DIB_BOOTLOADER_DEFAULT_CMDLINE }}\""
+      when: isRH == 1
+
+    - name: Update GRUB configuration for Ubuntu-based systems
+      lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+        line: "GRUB_CMDLINE_DEFAULT=\"{{ DIB_BOOTLOADER_DEFAULT_CMDLINE }}\""
+      when: isUbuntu == 1
+
+    - name: Display applied changes for RedHat-based systems
+      command: "grep GRUB_CMDLINE_LINUX /etc/default/grub"
+      when: isRH == 1
+      changed_when: false
+      failed_when: false
+
+    - name: Display applied changes for Ubuntu-based systems
+      command: "grep GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub"
+      when: isUbuntu == 1
+      changed_when: false
+      failed_when: false
