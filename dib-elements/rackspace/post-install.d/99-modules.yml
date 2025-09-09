@@ -1,0 +1,75 @@
+---
+- name: Configure network modules
+  hosts: all
+  become: yes
+  vars:
+    modules_file: /etc/modules
+    ixgbe_conf_file: /etc/modprobe.d/ixgbe.conf
+    modules_list:
+      - 8021q
+      - ixgbe
+      - ixgbevf
+      - tg3
+    ixgbe_options: "options ixgbe max_vfs=63"
+
+  tasks:
+    - name: Include set -euo pipefail
+      meta: noop
+
+    - name: Create /etc/modules file with required modules
+      copy:
+        content: |
+          {{ modules_list | join('\n') }}
+        dest: "{{ modules_file }}"
+      register: create_modules_file
+      changed_when: create_modules_file is changed
+
+    - name: Verify creation of /etc/modules file
+      command: "cat {{ modules_file }}"
+      register: verify_modules_file
+      changed_when: false
+      failed_when: false
+
+    - name: Print success message for /etc/modules file creation
+      debug:
+        msg: "/etc/modules file successfully created."
+      when: verify_modules_file.rc == 0
+
+    - name: Print error message for /etc/modules file creation
+      debug:
+        msg: "Failed to create /etc/modules file."
+      when: verify_modules_file.rc != 0
+
+    - name: Create /etc/modprobe.d/ixgbe.conf file with required options
+      copy:
+        content: |
+          {{ ixgbe_options }}
+        dest: "{{ ixgbe_conf_file }}"
+      register: create_ixgbe_conf_file
+      changed_when: create_ixgbe_conf_file is changed
+
+    - name: Verify creation of /etc/modprobe.d/ixgbe.conf file
+      command: "cat {{ ixgbe_conf_file }}"
+      register: verify_ixgbe_conf_file
+      changed_when: false
+      failed_when: false
+
+    - name: Print success message for /etc/modprobe.d/ixgbe.conf file creation
+      debug:
+        msg: "/etc/modprobe.d/ixgbe.conf file successfully created."
+      when: verify_ixgbe_conf_file.rc == 0
+
+    - name: Print error message for /etc/modprobe.d/ixgbe.conf file creation
+      debug:
+        msg: "Failed to create /etc/modprobe.d/ixgbe.conf file."
+      when: verify_ixgbe_conf_file.rc != 0
+
+    - name: Print success message for all tasks
+      debug:
+        msg: "All network module configurations have been successfully applied."
+      when: verify_modules_file.rc == 0 and verify_ixgbe_conf_file.rc == 0
+
+    - name: Print error message for all tasks
+      debug:
+        msg: "Failed to apply network module configurations."
+      when: verify_modules_file.rc != 0 or verify_ixgbe_conf_file.rc != 0
