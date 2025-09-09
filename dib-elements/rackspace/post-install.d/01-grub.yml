@@ -3,7 +3,7 @@
   hosts: all
   become: yes
   vars:
-    DIB_BOOTLOADER_DEFAULT_CMDLINE: "rdblacklist=bfa,lpfc nofb nomodeset vga=normal console=tty0 console=ttyS1,115200n8 audit=1 audit_backlog_limit=8192"
+    DIB_BOOTLOADER_DEFAULT_CMDLINE: "rdblacklist=bfa,lpfc nofb nomodeset vga=normal console=tty0 console=ttyS1,115200n8 audit=1 audit_backlog_limit=8192 biosdevname=1"
     isRH: 0
     isUbuntu: 0
 
