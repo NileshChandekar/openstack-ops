@@ -1,0 +1,108 @@
+---
+- name: Configure network interfaces
+  hosts: all
+  become: yes
+  vars:
+    isRH: 0
+    isUbuntu: 0
+    network_config_file_rh: /etc/sysconfig/network-scripts/ifcfg-eth0
+    network_config_file_ubuntu: /etc/netplan/50-cloud-init.yaml
+
+  tasks:
+    - name: Check if the system is RedHat-based
+      command: "egrep -q -i 'Centos|RedHat' /etc/redhat-release"
+      register: check_rh
+      changed_when: false
+      failed_when: false
+
+    - name: Check if the system is Ubuntu-based
+      command: "lsb_release -si | grep -i Ubuntu"
+      register: check_ubuntu
+      changed_when: false
+      failed_when: false
+
+    - name: Set isRH variable based on the system type
+      set_fact:
+        isRH: 1
+      when: check_rh.rc == 0
+
+    - name: Set isUbuntu variable based on the system type
+      set_fact:
+        isUbuntu: 1
+      when: check_ubuntu.rc == 0
+
+    - name: Create network configuration for RedHat-based systems
+      copy:
+        content: |
+          TYPE=Ethernet
+          BOOTPROTO=dhcp
+          NAME=eth0
+          DEVICE=eth0
+          ONBOOT=yes
+        dest: "{{ network_config_file_rh }}"
+      when: isRH == 1
+
+    - name: Create network configuration for Ubuntu-based systems
+      copy:
+        content: |
+          # This is the initial network config.
+          # It can be overwritten by cloud-init or console-conf.
+          network:
+              version: 2
+              ethernets:
+                  eth0:
+                      match:
+                          name: "eth0"
+                      dhcp4: true
+                  eth1:
+                      match:
+                          name: "eth1"
+                      dhcp4: true
+        dest: "{{ network_config_file_ubuntu }}"
+      when: isUbuntu == 1
+
+    - name: Ensure network configuration file exists for RedHat-based systems
+      file:
+        path: "{{ network_config_file_rh }}"
+        state: touch
+      when: isRH == 1
+
+    - name: Ensure network configuration directory exists for Ubuntu-based systems
+      file:
+        path: "{{ network_config_file_ubuntu | dirname }}"
+        state: directory
+      when: isUbuntu == 1
+
+    - name: Verify network configuration for RedHat-based systems
+      command: "cat {{ network_config_file_rh }}"
+      register: verify_rh_config
+      changed_when: false
+      failed_when: false
+      when: isRH == 1
+
+    - name: Verify network configuration for Ubuntu-based systems
+      command: "cat {{ network_config_file_ubuntu }}"
+      register: verify_ubuntu_config
+      changed_when: false
+      failed_when: false
+      when: isUbuntu == 1
+
+    - name: Print success message for RedHat-based systems
+      debug:
+        msg: "Network configuration successfully applied for RedHat-based system."
+      when: isRH == 1 and verify_rh_config.rc == 0
+
+    - name: Print success message for Ubuntu-based systems
+      debug:
+        msg: "Network configuration successfully applied for Ubuntu-based system."
+      when: isUbuntu == 1 and verify_ubuntu_config.rc == 0
+
+    - name: Print error message for RedHat-based systems
+      debug:
+        msg: "Failed to apply network configuration for RedHat-based system."
+      when: isRH == 1 and verify_rh_config.rc != 0
+
+    - name: Print error message for Ubuntu-based systems
+      debug:
+        msg: "Failed to apply network configuration for Ubuntu-based system."
+      when: isUbuntu == 1 and verify_ubuntu_config.rc != 0
